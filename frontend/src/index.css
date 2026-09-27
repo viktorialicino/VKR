@@ -1,0 +1,283 @@
+@import '@fontsource-variable/inter/wght.css';
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- FullCalendar в стиле приложения ---------- */
+.fc {
+  --fc-border-color: #e8eaf3;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: #f7f8fd;
+  --fc-today-bg-color: rgba(79, 70, 229, 0.06);
+  --fc-now-indicator-color: #ef4444;
+  --fc-highlight-color: rgba(79, 70, 229, 0.16);
+  --fc-event-border-color: transparent;
+  --fc-more-link-bg-color: transparent;
+  font-family: inherit;
+}
+
+.fc .fc-scrollgrid,
+.fc .fc-scrollgrid td,
+.fc .fc-scrollgrid th {
+  border-color: var(--fc-border-color);
+}
+
+.fc .fc-scrollgrid {
+  border-radius: 14px;
+  overflow: hidden;
+  border-width: 1px;
+}
+
+.fc .fc-col-header-cell {
+  background: #fafbff;
+}
+
+.fc .fc-col-header-cell-cushion {
+  padding: 10px 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.fc .fc-col-header-cell-cushion::first-letter {
+  text-transform: uppercase;
+}
+
+.fc .fc-day-today .fc-col-header-cell-cushion {
+  color: #4f46e5;
+}
+
+.fc .fc-timegrid-slot-label-cushion,
+.fc .fc-timegrid-axis-cushion {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.fc .fc-timegrid-slot {
+  height: 2.6em;
+}
+
+.fc .fc-timegrid-slot-minor {
+  border-top-style: dotted;
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-multimonth-daygrid .fc-daygrid-day-number {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #334155;
+  text-decoration: none;
+  padding: 4px 6px;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+  background: #4f46e5;
+  color: #fff;
+  border-radius: 999px;
+  margin: 3px;
+  min-width: 1.6em;
+  text-align: center;
+  padding: 2px 4px;
+}
+
+.fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number {
+  color: #cbd5e1;
+}
+
+.fc .fc-multimonth-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: #1e293b;
+  padding: 0.8em 0 0.4em;
+}
+
+.fc .fc-multimonth {
+  border: none;
+}
+
+.fc .fc-multimonth-month {
+  padding: 0.6em;
+}
+
+/* события */
+.fc .fc-event {
+  border-radius: 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.fc .fc-event.ob-own {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+}
+
+.fc .fc-event .fc-event-main {
+  color: inherit;
+}
+
+.fc .fc-event.ob-other {
+  background: #eceef8;
+  color: #334155;
+  border-left: 3px solid #94a3b8;
+  box-shadow: none;
+}
+
+.fc .fc-daygrid-event-dot {
+  border-color: #6366f1;
+}
+
+.fc .fc-daygrid-dot-event.ob-other .fc-daygrid-event-dot {
+  border-color: #94a3b8;
+}
+
+.fc .fc-event.fc-daygrid-dot-event,
+.fc .fc-event.fc-daygrid-dot-event:hover {
+  background: transparent;
+  box-shadow: none;
+  border-left: 0;
+  color: #334155;
+}
+
+.ob-ev {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 5px;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.ob-ev b {
+  font-weight: 700;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.ob-ev span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ob-ev .ob-ev-user {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.ob-ev-line {
+  padding: 1px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc .fc-more-link {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.fc .fc-highlight {
+  border-radius: 8px;
+}
+
+.fc .fc-timegrid-now-indicator-line {
+  border-width: 1.5px;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+/* прошедшее время недоступно для выбора */
+.fc .ob-past,
+.fc .fc-bg-event.ob-past {
+  background: rgba(148, 163, 184, 0.13);
+  opacity: 1;
+}
+
+/* ---------- узкие экраны ---------- */
+@media (max-width: 600px) {
+  .fc .fc-col-header-cell-cushion {
+    padding: 8px 2px;
+    font-size: 0.7rem;
+  }
+
+  .fc .fc-timegrid-slot-label-cushion,
+  .fc .fc-timegrid-axis-cushion {
+    font-size: 0.66rem;
+  }
+
+  .fc .fc-timegrid-axis {
+    width: 40px !important;
+  }
+
+  .fc .fc-event {
+    font-size: 0.7rem;
+  }
+
+  .fc .fc-daygrid-day-number {
+    font-size: 0.72rem;
+    padding: 2px 4px;
+  }
+
+  .ob-ev {
+    padding: 2px 3px;
+  }
+}
+
+/* год: день с бронями отмечен точкой */
+.fc .ob-busy-day .fc-daygrid-day-number {
+  position: relative;
+  color: #4f46e5;
+  font-weight: 700;
+}
+
+.fc .ob-busy-day .fc-daygrid-day-number::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4f46e5;
+  transform: translateX(-50%);
+}
+
+.fc-multimonth-daygrid .fc-daygrid-day-frame {
+  cursor: pointer;
+}
+
+/* месяц: ячейка дня нажимается — открывает форму брони */
+.fc .fc-daygrid-day:not(.ob-past) .fc-daygrid-day-frame {
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.fc .fc-dayGridMonth-view .fc-daygrid-day:not(.ob-past):hover .fc-daygrid-day-frame {
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.fc .fc-dayGridMonth-view .fc-daygrid-day.ob-past .fc-daygrid-day-frame {
+  cursor: not-allowed;
+}
+
+/* фоновое затенение прошлого не должно перехватывать клики */
+.fc .fc-bg-event {
+  pointer-events: none;
+}

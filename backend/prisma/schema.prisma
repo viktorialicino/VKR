@@ -1,0 +1,131 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  EMPLOYEE       @map("employee")
+  OFFICE_MANAGER @map("office_manager")
+  ADMIN          @map("admin")
+
+  @@map("role")
+}
+
+enum BookingStatus {
+  CONFIRMED @map("confirmed")
+  CANCELLED @map("cancelled")
+
+  @@map("booking_status")
+}
+
+enum ResourceStatus {
+  AVAILABLE @map("available")
+  ISSUED    @map("issued")
+  IN_REPAIR @map("in_repair")
+
+  @@map("resource_status")
+}
+
+enum ResourceAction {
+  ISSUED    @map("issued")
+  RETURNED  @map("returned")
+  TO_REPAIR @map("to_repair")
+
+  @@map("resource_action")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  fullName     String   @map("full_name")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(EMPLOYEE)
+  department   String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bookings     Booking[]
+  resourceLogs ResourceLog[]
+
+  @@map("users")
+}
+
+model Room {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  floor     Int
+  capacity  Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bookings  Booking[]
+  resources Resource[]
+
+  @@map("rooms")
+}
+
+model Resource {
+  id              String         @id @default(uuid()) @db.Uuid
+  name            String
+  type            String
+  inventoryNumber String         @unique @map("inventory_number")
+  status          ResourceStatus @default(AVAILABLE)
+  roomId          String?        @map("room_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  room     Room?             @relation(fields: [roomId], references: [id])
+  bookings BookingResource[]
+  logs     ResourceLog[]
+
+  @@map("resources")
+}
+
+model Booking {
+  id        String        @id @default(uuid()) @db.Uuid
+  roomId    String        @map("room_id") @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  title     String
+  startTime DateTime      @map("start_time") @db.Timestamptz(3)
+  endTime   DateTime      @map("end_time") @db.Timestamptz(3)
+  status    BookingStatus @default(CONFIRMED)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  room      Room              @relation(fields: [roomId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+  resources BookingResource[]
+
+  @@index([roomId, startTime])
+  @@map("bookings")
+}
+
+// start_time/end_time/active дублируют данные брони, чтобы ограничение EXCLUDE
+// могло защитить ресурс от пересекающихся назначений (см. миграцию no_overlap).
+model BookingResource {
+  bookingId  String   @map("booking_id") @db.Uuid
+  resourceId String   @map("resource_id") @db.Uuid
+  startTime  DateTime @map("start_time") @db.Timestamptz(3)
+  endTime    DateTime @map("end_time") @db.Timestamptz(3)
+  active     Boolean  @default(true)
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id])
+
+  @@id([bookingId, resourceId])
+  @@map("booking_resources")
+}
+
+model ResourceLog {
+  id         String         @id @default(uuid()) @db.Uuid
+  resourceId String         @map("resource_id") @db.Uuid
+  userId     String?        @map("user_id") @db.Uuid
+  action     ResourceAction
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  resource Resource @relation(fields: [resourceId], references: [id])
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@map("resource_logs")
+}
