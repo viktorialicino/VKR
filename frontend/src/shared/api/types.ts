@@ -41,9 +41,18 @@ export interface Booking {
 
 export interface CreateBookingBody {
   roomId: string
-  userId: string
   title: string
   startTime: string
   endTime: string
   resourceIds: string[]
+}
+
+export interface LoginBody {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  accessToken: string
+  user: Pick<User, 'id' | 'fullName' | 'email' | 'role'>
 }

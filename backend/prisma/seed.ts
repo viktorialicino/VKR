@@ -1,15 +1,17 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
 import { PrismaClient } from '../src/generated/client.js';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
-// passwordHash — заглушка до появления модуля авторизации
-const PLACEHOLDER_HASH = 'set-by-auth-module';
+// Пароль для всех демо-аккаунтов сидинга — только для локальной разработки
+const DEMO_PASSWORD = 'password123';
 
 async function main() {
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const users = [
     { email: 'employee@example.com', fullName: 'Иван Петров', role: 'EMPLOYEE', department: 'Разработка' },
     { email: 'manager@example.com', fullName: 'Мария Смирнова', role: 'OFFICE_MANAGER', department: 'АХО' },
@@ -18,8 +20,8 @@ async function main() {
   for (const u of users) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: {},
-      create: { ...u, passwordHash: PLACEHOLDER_HASH },
+      update: { passwordHash },
+      create: { ...u, passwordHash },
     });
   }
 
@@ -45,6 +47,7 @@ async function main() {
   }
 
   console.log('Seed выполнен: пользователи, комнаты, ресурсы');
+  console.log(`Демо-пароль для всех сидированных пользователей: ${DEMO_PASSWORD}`);
 }
 
 main().finally(() => prisma.$disconnect());

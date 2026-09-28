@@ -46,7 +46,7 @@ export class ResourcesService {
     });
   }
 
-  async changeStatus(id: string, dto: ChangeStatusDto) {
+  async changeStatus(id: string, dto: ChangeStatusDto, userId: string) {
     const resource = await this.prisma.resource.findUnique({ where: { id } });
     if (!resource) throw new NotFoundException('Ресурс не найден');
 
@@ -60,7 +60,7 @@ export class ResourcesService {
     const [updated] = await this.prisma.$transaction([
       this.prisma.resource.update({ where: { id }, data: { status: t.to } }),
       this.prisma.resourceLog.create({
-        data: { resourceId: id, userId: dto.userId, action: t.log },
+        data: { resourceId: id, userId, action: t.log },
       }),
     ]);
     return updated;

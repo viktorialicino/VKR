@@ -253,7 +253,7 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
         Бронь
       </Fab>
 
-      <BookingDialog open={slot !== null} slot={slot} roomId={roomId} roomName={roomName} userId={userId} onClose={closeNew} />
+      <BookingDialog open={slot !== null} slot={slot} roomId={roomId} roomName={roomName} onClose={closeNew} />
       <BookingDetailsDialog booking={details} own={details?.userId === userId} onClose={() => setDetails(null)} />
 
       <Snackbar open={notice !== null} autoHideDuration={3000} onClose={() => setNotice(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

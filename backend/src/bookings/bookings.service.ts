@@ -1,10 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../generated/client.js';
+import { Prisma, Role } from '../generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { validateBookingWindow } from './booking-rules.js';
 import { BookingsGateway } from './bookings.gateway.js';
@@ -41,7 +42,7 @@ export class BookingsService {
     });
   }
 
-  async create(dto: CreateBookingDto) {
+  async create(dto: CreateBookingDto, userId: string) {
     const problem = validateBookingWindow(dto.startTime, dto.endTime);
     if (problem) throw new BadRequestException(problem);
 
@@ -59,7 +60,7 @@ export class BookingsService {
         const created = await tx.booking.create({
           data: {
             roomId: dto.roomId,
-            userId: dto.userId,
+            userId,
             title: dto.title,
             startTime: dto.startTime,
             endTime: dto.endTime,
@@ -85,9 +86,14 @@ export class BookingsService {
     }
   }
 
-  async cancel(id: string) {
+  async cancel(id: string, requester: { id: string; role: Role }) {
     const existing = await this.prisma.booking.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Бронь не найдена');
+    const isOwner = existing.userId === requester.id;
+    const canManage = requester.role === 'OFFICE_MANAGER' || requester.role === 'ADMIN';
+    if (!isOwner && !canManage) {
+      throw new ForbiddenException('Отменить бронь может только её автор или офис-менеджер');
+    }
     if (existing.status === 'CANCELLED') return existing;
 
     const [booking] = await this.prisma.$transaction([

@@ -50,7 +50,6 @@ interface Props {
   slot: Slot | null
   roomId: string
   roomName: string
-  userId: string
   onClose: () => void
 }
 
@@ -66,7 +65,7 @@ export function BookingDialog(props: Props) {
   return <BookingForm key={props.slot ? props.slot.start.getTime() : 'closed'} {...props} />
 }
 
-function BookingForm({ open, slot, roomId, roomName, userId, onClose }: Props) {
+function BookingForm({ open, slot, roomId, roomName, onClose }: Props) {
   const theme = useTheme()
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
   const now = new Date()
@@ -120,7 +119,6 @@ function BookingForm({ open, slot, roomId, roomName, userId, onClose }: Props) {
     try {
       await createBooking({
         roomId,
-        userId,
         title: values.title.trim(),
         startTime: parseLocal(values.startDate, values.startTime).toISOString(),
         endTime: parseLocal(values.endDate, values.endTime).toISOString(),

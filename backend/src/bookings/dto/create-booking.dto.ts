@@ -15,10 +15,6 @@ export class CreateBookingDto {
   @IsUUID()
   roomId!: string;
 
-  // Временно передаётся в теле; после добавления авторизации берётся из JWT
-  @IsUUID()
-  userId!: string;
-
   @IsString()
   @IsNotEmpty()
   @MaxLength(BOOKING_RULES.titleMaxLength)

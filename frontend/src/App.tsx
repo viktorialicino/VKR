@@ -1,36 +1,49 @@
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import LogoutIcon from '@mui/icons-material/Logout'
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
-import PersonIcon from '@mui/icons-material/Person'
 import {
   AppBar,
   Box,
   Chip,
   Container,
+  IconButton,
   InputAdornment,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Toolbar,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import type { RootState } from './app/store'
 import { BookingCalendar } from './features/bookings/BookingCalendar'
-import { useGetRoomsQuery, useGetUsersQuery } from './shared/api/api'
+import { logout } from './features/auth/authSlice'
+import { LoginPage } from './features/auth/LoginPage'
+import { useGetRoomsQuery } from './shared/api/api'
 import { useRoomEvents } from './shared/socket/useRoomEvents'
 
-export default function App() {
-  const { data: rooms = [] } = useGetRoomsQuery()
-  const { data: users = [] } = useGetUsersQuery()
-  const [pickedRoom, setPickedRoom] = useState<string | null>(null)
-  const [pickedUser, setPickedUser] = useState<string | null>(null)
+const ROLE_LABELS: Record<string, string> = {
+  EMPLOYEE: 'Сотрудник',
+  OFFICE_MANAGER: 'Офис-менеджер',
+  ADMIN: 'Администратор',
+}
 
-  // до выбора берём первые значения из справочников
+export default function App() {
+  const dispatch = useDispatch()
+  const user = useSelector((s: RootState) => s.auth.user)
+  const { data: rooms = [] } = useGetRoomsQuery(undefined, { skip: !user })
+  const [pickedRoom, setPickedRoom] = useState<string | null>(null)
+
+  // до выбора берём первое значение из справочника
   const roomId = pickedRoom ?? rooms[0]?.id ?? null
-  const userId = pickedUser ?? users[0]?.id ?? null
 
   const live = useRoomEvents(roomId)
   const room = rooms.find((r) => r.id === roomId)
+
+  if (!user) return <LoginPage />
 
   return (
     <Box sx={{ minHeight: '100vh', pb: { xs: 10, sm: 4 } }}>
@@ -72,6 +85,17 @@ export default function App() {
             }
             title={live ? 'Календарь обновляется в реальном времени' : 'Нет соединения с сервером'}
           />
+          <Box sx={{ textAlign: 'right', ml: 1, display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body2" noWrap>{user.fullName}</Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {ROLE_LABELS[user.role] ?? user.role}
+            </Typography>
+          </Box>
+          <Tooltip title="Выйти">
+            <IconButton onClick={() => dispatch(logout())} size="small">
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
 
@@ -102,28 +126,12 @@ export default function App() {
                 </MenuItem>
               ))}
             </TextField>
-
-            <TextField
-              select
-              size="small"
-              label="Вы (пока без входа)"
-              value={userId ?? ''}
-              onChange={(e) => setPickedUser(e.target.value)}
-              sx={{ minWidth: { sm: 220 } }}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> } }}
-            >
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.fullName}
-                </MenuItem>
-              ))}
-            </TextField>
           </Stack>
         </Stack>
 
         <Paper variant="outlined" sx={{ borderRadius: '20px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(15,23,42,.05)', borderColor: 'divider' }}>
-          {room && userId ? (
-            <BookingCalendar key={room.id} roomId={room.id} roomName={room.name} userId={userId} />
+          {room ? (
+            <BookingCalendar key={room.id} roomId={room.id} roomName={room.name} userId={user.id} />
           ) : (
             <Box sx={{ p: 6, textAlign: 'center' }}>
               <Typography color="text.secondary">Загрузка…</Typography>
