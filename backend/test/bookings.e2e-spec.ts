@@ -1,20 +1,19 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module.js';
-import { configureApp } from '../src/app.setup.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { bearer, createTestApp, loginAs } from './helpers.js';
 
 describe('Бронирование (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let userId: string;
+  let employee: { token: string; id: string };
+  let manager: { token: string; id: string };
   let roomId: string;
   let otherRoomId: string;
   let resourceId: string;
 
   const tag = `e2e-${Date.now()}`;
-  // Рабочее время считается в поясе компании (по умолчанию Europe/Moscow, UTC+3)
+  // Интервалы задаём в поясе Москвы (UTC+3), на два месяца вперёд — чтобы не упереться в «прошедшее время»
   const ymd = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
   const at = (h: number, m = 0) =>
     new Date(`${ymd}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+03:00`).toISOString();
@@ -22,16 +21,14 @@ describe('Бронирование (e2e)', () => {
   const book = (over: Record<string, unknown>) =>
     request(app.getHttpServer())
       .post('/api/bookings')
-      .send({ roomId, userId, title: tag, ...over });
+      .set(bearer(employee.token))
+      .send({ roomId, title: tag, ...over });
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    configureApp(app);
-    await app.init();
+    app = await createTestApp();
     prisma = app.get(PrismaService);
-
-    userId = (await prisma.user.findUniqueOrThrow({ where: { email: 'employee@example.com' } })).id;
+    employee = await loginAs(app, 'employee');
+    manager = await loginAs(app, 'manager');
     roomId = (await prisma.room.create({ data: { name: `${tag}-a`, floor: 1, capacity: 4 } })).id;
     otherRoomId = (await prisma.room.create({ data: { name: `${tag}-b`, floor: 1, capacity: 4 } })).id;
     resourceId = (
@@ -40,6 +37,7 @@ describe('Бронирование (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.bookingResource.deleteMany({ where: { resourceId } });
     await prisma.booking.deleteMany({ where: { roomId: { in: [roomId, otherRoomId] } } });
     await prisma.resource.delete({ where: { id: resourceId } });
     await prisma.room.deleteMany({ where: { id: { in: [roomId, otherRoomId] } } });
@@ -70,7 +68,10 @@ describe('Бронирование (e2e)', () => {
 
   it('после отмены брони слот и ресурс снова свободны', async () => {
     const created = await book({ startTime: at(13), endTime: at(14), resourceIds: [resourceId] }).expect(201);
-    await request(app.getHttpServer()).delete(`/api/bookings/${created.body.id}`).expect(200);
+    await request(app.getHttpServer())
+      .delete(`/api/bookings/${created.body.id}`)
+      .set(bearer(employee.token))
+      .expect(200);
     await book({ roomId: otherRoomId, startTime: at(13), endTime: at(14), resourceIds: [resourceId] }).expect(201);
   });
 
@@ -99,12 +100,14 @@ describe('Бронирование (e2e)', () => {
   it('показывает занятость оборудования на интервале и не даёт взять ресурс в ремонте', async () => {
     const busy = await request(app.getHttpServer())
       .get('/api/resources')
+      .set(bearer(employee.token))
       .query({ from: at(10), to: at(11) })
       .expect(200);
     expect(busy.body.find((r: { id: string }) => r.id === resourceId).busy).toBe(true);
 
     const free = await request(app.getHttpServer())
       .get('/api/resources')
+      .set(bearer(employee.token))
       .query({ from: at(16), to: at(17) })
       .expect(200);
     expect(free.body.find((r: { id: string }) => r.id === resourceId).busy).toBe(false);
@@ -112,6 +115,43 @@ describe('Бронирование (e2e)', () => {
     await prisma.resource.update({ where: { id: resourceId }, data: { status: 'IN_REPAIR' } });
     await book({ startTime: at(16), endTime: at(17), resourceIds: [resourceId] }).expect(409);
     await prisma.resource.update({ where: { id: resourceId }, data: { status: 'AVAILABLE' } });
+  });
+
+  it('записывает автора брони из токена, а не из тела запроса', async () => {
+    const res = await book({ startTime: at(20), endTime: at(21), userId: manager.id });
+    // userId в теле запроса запрещён валидацией (whitelist + forbidNonWhitelisted)
+    expect(res.status).toBe(400);
+    const ok = await book({ startTime: at(20), endTime: at(21) }).expect(201);
+    expect(ok.body.userId).toBe(employee.id);
+  });
+
+  it('не даёт сотруднику отменить чужую бронь (403), но офис-менеджеру — даёт', async () => {
+    const created = await book({ startTime: at(21, 30), endTime: at(22) }).expect(201);
+    const other = await loginAs(app, 'admin');
+    await request(app.getHttpServer())
+      .delete(`/api/bookings/${created.body.id}`)
+      .set(bearer(other.token))
+      .expect(200);
+
+    const own = await book({ startTime: at(21, 30), endTime: at(22) }).expect(201);
+    const foreignEmployee = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set(bearer(other.token))
+      .send({ fullName: 'Тест Сотрудник', email: `${tag}@example.com`, password: 'password123' })
+      .expect(201);
+    const foreign = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: `${tag}@example.com`, password: 'password123' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/api/bookings/${own.body.id}`)
+      .set(bearer(foreign.body.accessToken))
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`/api/bookings/${own.body.id}`)
+      .set(bearer(manager.token))
+      .expect(200);
+    await prisma.user.delete({ where: { id: foreignEmployee.body.id } });
   });
 
   it('при 10 одновременных запросах на один слот создаётся ровно одна бронь', async () => {

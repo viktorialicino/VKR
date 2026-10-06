@@ -11,6 +11,7 @@ import { validateBookingWindow } from './booking-rules.js';
 import { BookingsGateway } from './bookings.gateway.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto.js';
+import { UpdateBookingDto } from './dto/update-booking.dto.js';
 
 const BOOKING_INCLUDE = {
   room: true,
@@ -86,6 +87,55 @@ export class BookingsService {
     }
   }
 
+  async update(id: string, dto: UpdateBookingDto, requester: { id: string; role: Role }) {
+    const existing = await this.prisma.booking.findUnique({ where: { id }, include: { resources: true } });
+    if (!existing) throw new NotFoundException('Бронь не найдена');
+    const canManage = requester.role === 'OFFICE_MANAGER' || requester.role === 'ADMIN';
+    if (existing.userId !== requester.id && !canManage) {
+      throw new ForbiddenException('Изменить бронь может только её автор или офис-менеджер');
+    }
+    if (existing.status === 'CANCELLED') throw new BadRequestException('Отменённую бронь изменить нельзя');
+    if (existing.endTime <= new Date()) throw new BadRequestException('Завершившуюся бронь изменить нельзя');
+
+    const startTime = dto.startTime ?? existing.startTime;
+    const endTime = dto.endTime ?? existing.endTime;
+    // Правило «начало не в прошлом» применяется, только если начало действительно переносят:
+    // у уже идущей встречи можно изменить тему, окончание или оборудование
+    const startChanged = startTime.getTime() !== existing.startTime.getTime();
+    const problem = validateBookingWindow(startTime, endTime, startChanged ? new Date() : existing.startTime);
+    if (problem) throw new BadRequestException(problem);
+
+    const currentIds = existing.resources.map((r) => r.resourceId);
+    const resourceIds = dto.resourceIds ?? currentIds;
+    const added = resourceIds.filter((rid) => !currentIds.includes(rid));
+    if (added.length > 0) {
+      const broken = await this.prisma.resource.findFirst({
+        where: { id: { in: added }, status: 'IN_REPAIR' },
+        select: { name: true },
+      });
+      if (broken) throw new ConflictException(`Ресурс «${broken.name}» сейчас в ремонте`);
+    }
+
+    try {
+      const booking = await this.prisma.$transaction(async (tx) => {
+        await tx.booking.update({ where: { id }, data: { title: dto.title, startTime, endTime } });
+        // Назначения ресурсов пересоздаются целиком: так новое время и новый набор проверяются
+        // ограничением-исключением одинаково, без частично обновлённых строк
+        await tx.bookingResource.deleteMany({ where: { bookingId: id } });
+        if (resourceIds.length > 0) {
+          await tx.bookingResource.createMany({
+            data: resourceIds.map((resourceId) => ({ bookingId: id, resourceId, startTime, endTime })),
+          });
+        }
+        return tx.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE });
+      });
+      this.gateway.emitUpdated(booking);
+      return booking;
+    } catch (e) {
+      throw await this.toHttpError(e, { roomId: existing.roomId, startTime, endTime }, id);
+    }
+  }
+
   async cancel(id: string, requester: { id: string; role: Role }) {
     const existing = await this.prisma.booking.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Бронь не найдена');
@@ -108,12 +158,17 @@ export class BookingsService {
     return booking;
   }
 
-  private async toHttpError(e: unknown, dto: CreateBookingDto): Promise<unknown> {
+  private async toHttpError(
+    e: unknown,
+    dto: { roomId: string; startTime: Date; endTime: Date },
+    excludeId?: string,
+  ): Promise<unknown> {
     const text = errorText(e);
 
     if (text.includes(ROOM_OVERLAP)) {
       const clash = await this.prisma.booking.findFirst({
         where: {
+          id: excludeId ? { not: excludeId } : undefined,
           roomId: dto.roomId,
           status: 'CONFIRMED',
           startTime: { lt: dto.endTime },

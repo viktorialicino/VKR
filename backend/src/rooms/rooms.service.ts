@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateRoomDto } from './dto/create-room.dto.js';
 
@@ -14,8 +15,15 @@ export class RoomsService {
     });
   }
 
-  create(dto: CreateRoomDto) {
-    return this.prisma.room.create({ data: dto });
+  async create(dto: CreateRoomDto) {
+    try {
+      return await this.prisma.room.create({ data: dto });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('Переговорная с таким названием уже существует');
+      }
+      throw e;
+    }
   }
 
   async availability(roomId: string, from: Date, to: Date) {

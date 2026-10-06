@@ -21,4 +21,9 @@ export class ListResourcesQueryDto {
   @Type(() => Date)
   @IsDate()
   to?: Date;
+
+  // При изменении брони её собственные назначения не считаются занятостью
+  @IsOptional()
+  @IsUUID()
+  excludeBookingId?: string;
 }

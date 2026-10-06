@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateResourceDto {
   @IsString()
@@ -19,4 +19,11 @@ export class CreateResourceDto {
   @IsOptional()
   @IsUUID()
   roomId?: string;
+
+  // сколько одинаковых единиц завести; при quantity > 1 инвентарный номер служит префиксом (MBP -> MBP-001, MBP-002 ...)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  quantity?: number;
 }

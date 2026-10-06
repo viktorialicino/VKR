@@ -281,3 +281,39 @@ body {
 .fc .fc-bg-event {
   pointer-events: none;
 }
+
+/* телефон, месяц: вместо обрезанных надписей – цветные точки, подробности – по нажатию на день */
+.ob-month-dots .fc-daygrid-day-events {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 2px 4px;
+  min-height: 0 !important;
+}
+
+.ob-month-dots .fc-daygrid-event-harness {
+  margin: 0 !important;
+  position: static !important;
+}
+
+.ob-month-dots .fc .fc-event,
+.ob-month-dots .fc-daygrid-event {
+  width: 9px;
+  height: 9px;
+  min-height: 0;
+  margin: 0 !important;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.ob-month-dots .fc .fc-event.ob-other,
+.ob-month-dots .fc-daygrid-event.ob-other {
+  background: #94a3b8;
+}
+
+.ob-month-dots .fc-daygrid-day-frame {
+  min-height: 3.2em;
+}

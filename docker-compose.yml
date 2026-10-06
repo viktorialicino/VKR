@@ -17,5 +17,37 @@ services:
       timeout: 3s
       retries: 10
 
+  # Серверная часть; профиль «full» — чтобы для разработки можно было запускать только postgres
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    profiles: ["full"]
+    environment:
+      DATABASE_URL: postgresql://booking:booking@postgres:5432/office_booking?schema=public
+      PORT: 3001
+      # В эксплуатации обязательно задать свой длинный случайный ключ (переменная окружения или .env рядом с файлом)
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+      JWT_EXPIRES_IN_SECONDS: 43200
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    profiles: ["full"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    profiles: ["full"]
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+
 volumes:
   pgdata:

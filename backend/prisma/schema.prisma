@@ -48,8 +48,10 @@ model User {
   department   String?
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  bookings     Booking[]
-  resourceLogs ResourceLog[]
+  bookings      Booking[]
+  resourceLogs  ResourceLog[] @relation("LogActor")
+  heldResources Resource[]    @relation("ResourceHolder")
+  receivedLogs  ResourceLog[] @relation("LogHolder")
 
   @@map("users")
 }
@@ -74,9 +76,12 @@ model Resource {
   inventoryNumber String         @unique @map("inventory_number")
   status          ResourceStatus @default(AVAILABLE)
   roomId          String?        @map("room_id") @db.Uuid
+  // сотрудник, которому выдан ресурс (заполнен только в статусе ISSUED)
+  holderId        String?        @map("holder_id") @db.Uuid
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   room     Room?             @relation(fields: [roomId], references: [id])
+  holder   User?             @relation("ResourceHolder", fields: [holderId], references: [id])
   bookings BookingResource[]
   logs     ResourceLog[]
 
@@ -121,11 +126,14 @@ model ResourceLog {
   id         String         @id @default(uuid()) @db.Uuid
   resourceId String         @map("resource_id") @db.Uuid
   userId     String?        @map("user_id") @db.Uuid
+  // для действия ISSUED – сотрудник, получивший ресурс
+  holderId   String?        @map("holder_id") @db.Uuid
   action     ResourceAction
   createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   resource Resource @relation(fields: [resourceId], references: [id])
-  user     User?    @relation(fields: [userId], references: [id])
+  user     User?    @relation("LogActor", fields: [userId], references: [id])
+  holder   User?    @relation("LogHolder", fields: [holderId], references: [id])
 
   @@map("resource_logs")
 }

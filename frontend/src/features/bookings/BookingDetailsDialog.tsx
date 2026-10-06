@@ -12,12 +12,16 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
+import type { RootState } from '../../app/store'
 import { errorMessage, useCancelBookingMutation } from '../../shared/api/api'
 import type { Booking } from '../../shared/api/types'
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 
 interface Props {
   booking: Booking | null
   own: boolean
+  onEdit: (booking: Booking) => void
   onClose: () => void
 }
 
@@ -31,16 +35,24 @@ const period = (b: { startTime: string; endTime: string }) =>
     ? `${day(b.startTime)}, ${time(b.startTime)}–${time(b.endTime)}`
     : `${day(b.startTime)}, ${time(b.startTime)} — ${day(b.endTime)}, ${time(b.endTime)}`
 
-export function BookingDetailsDialog({ booking, own, onClose }: Props) {
+export function BookingDetailsDialog({ booking, own, onEdit, onClose }: Props) {
   const [cancelBooking, { isLoading }] = useCancelBookingMutation()
   const [error, setError] = useState<string | null>(null)
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
+  const role = useSelector((s: RootState) => s.auth.user?.role)
+  // Как и на сервере: отменить может автор, офис-менеджер или администратор
+  const canCancel = own || role === 'OFFICE_MANAGER' || role === 'ADMIN'
+  // завершившуюся встречу изменить нельзя (сервер это тоже проверяет)
+  const canEdit = canCancel && booking !== null && new Date(booking.endTime) > new Date()
 
   const cancel = async () => {
     if (!booking) return
     try {
       await cancelBooking(booking.id).unwrap()
+      setConfirmingCancel(false)
       onClose()
     } catch (e) {
+      setConfirmingCancel(false)
       setError(errorMessage(e))
     }
   }
@@ -87,14 +99,32 @@ export function BookingDetailsDialog({ booking, own, onClose }: Props) {
             <Button color="inherit" onClick={close}>
               Закрыть
             </Button>
-            {own && (
-              <Button color="error" variant="outlined" onClick={cancel} disabled={isLoading}>
+            {canEdit && (
+              <Button variant="outlined" onClick={() => onEdit(booking)}>
+                Изменить
+              </Button>
+            )}
+            {canCancel && (
+              <Button color="error" variant="outlined" onClick={() => setConfirmingCancel(true)} disabled={isLoading}>
                 Отменить бронь
               </Button>
             )}
           </DialogActions>
         </>
       )}
+      <ConfirmDialog
+        open={confirmingCancel}
+        title="Отменить бронь?"
+        confirmLabel="Отменить бронь"
+        cancelLabel="Не отменять"
+        destructive
+        loading={isLoading}
+        onConfirm={cancel}
+        onClose={() => setConfirmingCancel(false)}
+      >
+        Бронь «{booking?.title}» будет отменена, комната и оборудование освободятся для других сотрудников. Это
+        действие нельзя отменить.
+      </ConfirmDialog>
     </Dialog>
   )
 }

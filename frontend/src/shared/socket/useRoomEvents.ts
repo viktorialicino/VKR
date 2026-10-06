@@ -19,6 +19,7 @@ export function useRoomEvents(roomId: string | null) {
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
     socket.on('booking:created', refresh)
+    socket.on('booking:updated', refresh)
     socket.on('booking:cancelled', refresh)
     socket.connect()
 
@@ -26,6 +27,7 @@ export function useRoomEvents(roomId: string | null) {
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
       socket.off('booking:created', refresh)
+      socket.off('booking:updated', refresh)
       socket.off('booking:cancelled', refresh)
       socket.disconnect()
     }

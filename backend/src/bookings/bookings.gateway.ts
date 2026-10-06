@@ -32,6 +32,10 @@ export class BookingsGateway {
     this.server.to(roomChannel(booking.roomId)).emit('booking:created', booking);
   }
 
+  emitUpdated(booking: { roomId: string }) {
+    this.server.to(roomChannel(booking.roomId)).emit('booking:updated', booking);
+  }
+
   emitCancelled(booking: { roomId: string }) {
     this.server.to(roomChannel(booking.roomId)).emit('booking:cancelled', booking);
   }

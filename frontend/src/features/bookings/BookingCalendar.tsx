@@ -7,7 +7,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import AddIcon from '@mui/icons-material/Add'
-import { Alert, Box, Chip, Fab, Snackbar, Stack, useMediaQuery } from '@mui/material'
+import { Alert, Box, Chip, Fab, Snackbar, Stack, Typography, useMediaQuery } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { useEffect, useRef, useState } from 'react'
 import { skipToken, useGetBookingsQuery } from '../../shared/api/api'
@@ -41,6 +41,7 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
   const [current, setCurrent] = useState(() => new Date())
   const [slot, setSlot] = useState<Slot | null>(null)
   const [details, setDetails] = useState<Booking | null>(null)
+  const [editing, setEditing] = useState<Booking | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   // «Сейчас» обновляется раз в минуту, чтобы затенение прошедшего времени двигалось само
@@ -119,6 +120,7 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
         </div>
       )
     }
+    if (type === 'dayGridMonth' && isXs) return <span className="ob-dot" title={`${arg.timeText} ${b.title}`} />
     if (type === 'dayGridMonth') {
       return (
         <div className="ob-ev-line">
@@ -133,7 +135,10 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
   // а клик по числу дня (navLinks) — расписание дня. В годовом виде ячейки мелкие,
   // поэтому клик открывает день.
   const onDateClick = (arg: DateClickArg) => {
-    if (arg.view.type === 'dayGridMonth') {
+    if (arg.view.type === 'dayGridMonth' && isXs) {
+      // на телефоне ячейки месяца мелкие: нажатие открывает расписание дня с точным временем
+      arg.view.calendar.changeView('timeGridDay', arg.date)
+    } else if (arg.view.type === 'dayGridMonth') {
       if (toDateStr(arg.date) < toDateStr(new Date())) {
         setNotice('На прошедшую дату бронировать нельзя')
         return
@@ -167,6 +172,7 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
   const startNew = () => setSlot(defaultSlot(api()?.getDate() ?? new Date()))
   const closeNew = () => {
     setSlot(null)
+    setEditing(null)
     api()?.unselect()
   }
 
@@ -191,7 +197,13 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
         <Chip size="small" label="Занято другими" avatar={<Dot color={OTHER} />} variant="outlined" />
       </Stack>
 
-      <Box sx={{ px: { xs: 0.5, sm: 2 }, pb: { xs: 1, sm: 2 } }}>
+      {isXs && view === 'dayGridMonth' && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1.5, pb: 1 }}>
+          Точками отмечены брони. Нажмите на день, чтобы увидеть время.
+        </Typography>
+      )}
+
+      <Box className={isXs && view === 'dayGridMonth' ? 'ob-month-dots' : undefined} sx={{ px: { xs: 0.5, sm: 2 }, pb: { xs: 1, sm: 2 } }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin, dayGridPlugin, multiMonthPlugin, interactionPlugin]}
@@ -220,7 +232,7 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
           events={[...pastShade, ...events]}
           eventContent={renderEvent}
           eventDisplay={view === 'multiMonthYear' ? 'none' : 'block'}
-          dayMaxEvents={3}
+          dayMaxEvents={isXs && view === 'dayGridMonth' ? false : 3}
           moreLinkClick="day"
           multiMonthMaxColumns={isLg ? 4 : isMd ? 3 : isSm ? 2 : 1}
           multiMonthMinWidth={260}
@@ -253,8 +265,23 @@ export function BookingCalendar({ roomId, roomName, userId }: Props) {
         Бронь
       </Fab>
 
-      <BookingDialog open={slot !== null} slot={slot} roomId={roomId} roomName={roomName} onClose={closeNew} />
-      <BookingDetailsDialog booking={details} own={details?.userId === userId} onClose={() => setDetails(null)} />
+      <BookingDialog
+        open={slot !== null || editing !== null}
+        slot={slot}
+        booking={editing}
+        roomId={roomId}
+        roomName={roomName}
+        onClose={closeNew}
+      />
+      <BookingDetailsDialog
+        booking={details}
+        own={details?.userId === userId}
+        onEdit={(b) => {
+          setDetails(null)
+          setEditing(b)
+        }}
+        onClose={() => setDetails(null)}
+      />
 
       <Snackbar open={notice !== null} autoHideDuration={3000} onClose={() => setNotice(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="info" variant="filled" onClose={() => setNotice(null)}>

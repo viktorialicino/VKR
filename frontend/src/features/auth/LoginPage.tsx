@@ -3,6 +3,7 @@ import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/ma
 import { useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { errorMessage, useLoginMutation } from '../../shared/api/api'
+import * as v from '../../shared/validation'
 import { setCredentials } from './authSlice'
 
 export function LoginPage() {
@@ -11,12 +12,18 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [login, { isLoading }] = useLoginMutation()
   const [error, setError] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+
+  const emailError = v.email(email)
+  const passwordError = v.required(password, 'Введите пароль')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitted(true)
     setError(null)
+    if (emailError || passwordError) return
     try {
-      const result = await login({ email, password }).unwrap()
+      const result = await login({ email: email.trim(), password }).unwrap()
       dispatch(setCredentials({ token: result.accessToken, user: result.user }))
     } catch (err) {
       setError(errorMessage(err))
@@ -27,11 +34,12 @@ export function LoginPage() {
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#f8fafc', p: 2 }}>
       <Paper
         component="form"
+        noValidate
         onSubmit={submit}
         variant="outlined"
         sx={{ p: 4, width: '100%', maxWidth: 380, borderRadius: '20px' }}
       >
-        <Stack spacing={2.5} alignItems="center">
+        <Stack spacing={2.5} sx={{ alignItems: 'center' }}>
           <Box
             sx={{
               width: 48,
@@ -57,6 +65,8 @@ export function LoginPage() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            error={submitted && Boolean(emailError)}
+            helperText={submitted ? emailError : undefined}
           />
           <TextField
             label="Пароль"
@@ -65,6 +75,8 @@ export function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            error={submitted && Boolean(passwordError)}
+            helperText={submitted ? passwordError : undefined}
           />
 
           {error && (

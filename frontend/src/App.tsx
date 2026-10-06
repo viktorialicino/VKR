@@ -1,9 +1,12 @@
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
+import AddIcon from '@mui/icons-material/Add'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
+import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import {
   AppBar,
   Box,
+  Button,
   Chip,
   Container,
   IconButton,
@@ -11,6 +14,8 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Toolbar,
   Tooltip,
@@ -22,20 +27,25 @@ import type { RootState } from './app/store'
 import { BookingCalendar } from './features/bookings/BookingCalendar'
 import { logout } from './features/auth/authSlice'
 import { LoginPage } from './features/auth/LoginPage'
+import { RegisterUserDialog } from './features/admin/RegisterUserDialog'
+import { RoomDialog } from './features/admin/RoomDialog'
+import { ConfirmDialog } from './shared/ui/ConfirmDialog'
+import { ResourcesPage } from './features/resources/ResourcesPage'
 import { useGetRoomsQuery } from './shared/api/api'
+import { ROLE_LABELS } from './shared/roles'
 import { useRoomEvents } from './shared/socket/useRoomEvents'
 
-const ROLE_LABELS: Record<string, string> = {
-  EMPLOYEE: 'Сотрудник',
-  OFFICE_MANAGER: 'Офис-менеджер',
-  ADMIN: 'Администратор',
-}
+type Section = 'calendar' | 'resources'
 
 export default function App() {
   const dispatch = useDispatch()
   const user = useSelector((s: RootState) => s.auth.user)
   const { data: rooms = [] } = useGetRoomsQuery(undefined, { skip: !user })
   const [pickedRoom, setPickedRoom] = useState<string | null>(null)
+  const [section, setSection] = useState<Section>('calendar')
+  const [addingRoom, setAddingRoom] = useState(false)
+  const [addingUser, setAddingUser] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   // до выбора берём первое значение из справочника
   const roomId = pickedRoom ?? rooms[0]?.id ?? null
@@ -44,6 +54,8 @@ export default function App() {
   const room = rooms.find((r) => r.id === roomId)
 
   if (!user) return <LoginPage />
+
+  const canManage = user.role === 'OFFICE_MANAGER' || user.role === 'ADMIN'
 
   return (
     <Box sx={{ minHeight: '100vh', pb: { xs: 10, sm: 4 } }}>
@@ -91,15 +103,40 @@ export default function App() {
               {ROLE_LABELS[user.role] ?? user.role}
             </Typography>
           </Box>
-          <Tooltip title="Выйти">
-            <IconButton onClick={() => dispatch(logout())} size="small">
+          {user.role === 'ADMIN' && (
+            <>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PersonAddIcon />}
+                onClick={() => setAddingUser(true)}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' }, whiteSpace: 'nowrap' }}
+              >
+                Добавить сотрудника
+              </Button>
+            </>
+          )}
+          <Tooltip title="Выйти из аккаунта">
+            <IconButton onClick={() => setLeaving(true)} size="small" aria-label="Выйти из аккаунта">
               <LogoutIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Toolbar>
+        <Tabs
+          value={section}
+          onChange={(_, v: Section) => setSection(v)}
+          sx={{ px: { xs: 1, sm: 3 }, minHeight: 44, '& .MuiTab-root': { minHeight: 44, textTransform: 'none', fontWeight: 600 } }}
+        >
+          <Tab value="calendar" label="Календарь" />
+          <Tab value="resources" label="Ресурсы" />
+        </Tabs>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ pt: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 3 } }}>
+        {section === 'resources' ? (
+          <ResourcesPage />
+        ) : (
+          <>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2.5, alignItems: { md: 'center' } }}>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h5" component="h2">
@@ -126,6 +163,21 @@ export default function App() {
                 </MenuItem>
               ))}
             </TextField>
+            {canManage && (
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setAddingRoom(true)}>
+                Переговорная
+              </Button>
+            )}
+            {user.role === 'ADMIN' && (
+              <Button
+                variant="outlined"
+                startIcon={<PersonAddIcon />}
+                onClick={() => setAddingUser(true)}
+                sx={{ display: { xs: 'inline-flex', sm: 'none' } }}
+              >
+                Добавить сотрудника
+              </Button>
+            )}
           </Stack>
         </Stack>
 
@@ -138,7 +190,25 @@ export default function App() {
             </Box>
           )}
         </Paper>
+          </>
+        )}
       </Container>
+
+      <RoomDialog open={addingRoom} onClose={() => setAddingRoom(false)} onCreated={setPickedRoom} />
+      <RegisterUserDialog open={addingUser} onClose={() => setAddingUser(false)} />
+      <ConfirmDialog
+        open={leaving}
+        title="Выйти из аккаунта?"
+        confirmLabel="Выйти"
+        cancelLabel="Остаться"
+        onConfirm={() => {
+          setLeaving(false)
+          dispatch(logout())
+        }}
+        onClose={() => setLeaving(false)}
+      >
+        Вы выходите как {user.fullName}. Чтобы вернуться в систему, нужно будет снова ввести email и пароль.
+      </ConfirmDialog>
     </Box>
   )
 }

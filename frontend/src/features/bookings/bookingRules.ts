@@ -49,7 +49,13 @@ export interface FormValues {
 
 export type FieldErrors = Partial<Record<keyof FormValues, string>>
 
-export function validateForm(v: FormValues, now: Date): FieldErrors {
+// original – начало изменяемой брони: если пользователь его не трогал, прошедшее время не считается ошибкой
+// (у идущей встречи можно поменять тему, окончание или оборудование)
+export function validateForm(
+  v: FormValues,
+  now: Date,
+  original?: { date: string; time: string },
+): FieldErrors {
   const errors: FieldErrors = {}
   const today = toDateStr(now)
   const start = ms(v.startDate, v.startTime)
@@ -58,11 +64,13 @@ export function validateForm(v: FormValues, now: Date): FieldErrors {
   if (!v.title.trim()) errors.title = 'Укажите тему встречи'
   else if (v.title.trim().length > RULES.titleMax) errors.title = `Не длиннее ${RULES.titleMax} символов`
 
+  const startKept = Boolean(original && v.startDate === original.date && v.startTime === original.time)
+
   if (!v.startDate) errors.startDate = 'Выберите дату начала'
-  else if (v.startDate < today) errors.startDate = 'Нельзя бронировать на прошедшую дату'
+  else if (!startKept && v.startDate < today) errors.startDate = 'Нельзя бронировать на прошедшую дату'
 
   if (!v.startTime) errors.startTime = 'Выберите время начала'
-  else if (!errors.startDate && start < floorToStep(now).getTime()) errors.startTime = 'Это время уже прошло'
+  else if (!startKept && !errors.startDate && start < floorToStep(now).getTime()) errors.startTime = 'Это время уже прошло'
 
   if (!v.endDate) errors.endDate = 'Выберите дату окончания'
   else if (v.startDate && v.endDate < v.startDate) errors.endDate = 'Дата окончания раньше даты начала'
@@ -136,3 +144,20 @@ export function slotForDay(day: Date, now = new Date()) {
 export function defaultSlot(day: Date, now = new Date()) {
   return slotForDay(toDateStr(day) === toDateStr(now) ? now : day, now)
 }
+
+// Значения формы для изменения существующей брони (время показывается в часовом поясе браузера)
+export function valuesFromBooking(b: { title: string; startTime: string; endTime: string }): FormValues {
+  const start = new Date(b.startTime)
+  const end = new Date(b.endTime)
+  return {
+    title: b.title,
+    startDate: toDateStr(start),
+    startTime: toTimeStr(start),
+    endDate: toDateStr(end),
+    endTime: toTimeStr(end),
+  }
+}
+
+// Добавляет в список времени значение, которого в сетке 15 минут может не быть (бронь создана через API)
+export const withTime = (options: string[], time: string) =>
+  options.includes(time) ? options : [...options, time].sort()
